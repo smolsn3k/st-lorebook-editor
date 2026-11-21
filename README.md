@@ -1,8 +1,17 @@
-# Bulk Non-recursable
+# Lorebook Editor
 
-A SillyTavern extension that checks **Non-recursable** on every entry of one or more lorebooks in a single click, with an optional automatic mode that keeps chosen lorebooks (for example your Memory lorebooks) fixed for you.
+A SillyTavern extension for editing many lorebook entries at once. Pick one or more lorebooks, then mass-edit entry settings or generate keywords with AI.
 
 Works on desktop and mobile.
+
+## Features
+
+- **Mass edit entry settings** across any number of lorebooks: Enabled, Constant, Vectorized, Ignore budget, Non-recursable, Prevent further recursion, Delay until recursion, Case-sensitive, Match whole words, Group scoring.
+- **Mass edit values**: Position, Depth, Depth role, Order, Trigger %, Scan depth, Sticky, Cooldown, Delay.
+- **Apply to** all entries, or only a subset (without keywords, enabled, disabled, constant, non-constant, or title/keywords containing some text).
+- **Preview** shows how many entries would change before you apply anything.
+- **Keyword generation** with AI, using any of your API profiles or the current connection.
+- Searchable lorebook list, responsive layout, large tap targets for mobile.
 
 ## Installation
 
@@ -16,47 +25,51 @@ Works on desktop and mobile.
 
 4. Reload SillyTavern if it doesn't refresh on its own.
 
-You'll find a new **Bulk Non-recursable** section in the Extensions panel.
+To update later, open **Manage extensions** in the Extensions panel and update it from there.
 
-To update later, open the Extensions panel and use **Manage extensions** to update it from there.
+## Opening the editor
+
+Either:
+
+- the **Lorebook Editor** entry in the Extensions panel, then **Open Lorebook Editor**, or
+- the **Lorebook Editor** item in the magic wand menu next to the chat input.
 
 ## Usage
 
-### Manual
+### Entry settings
 
-1. Open **Bulk Non-recursable** in the Extensions panel.
-2. Tick the lorebooks you want to process. Use the filter box to search, **Select shown** to tick everything currently visible, and **Clear** to untick all.
-3. Press **Check Non-recursable** to enable the flag on every entry in those lorebooks, or **Uncheck** to remove it.
+1. Tick the lorebooks you want to edit.
+2. Choose which entries to touch under **Apply to**.
+3. In **Entry settings**, set each option you care about:
+   - **—** leaves it unchanged (default)
+   - **On** turns it on for every matching entry
+   - **Off** turns it off for every matching entry
+4. Optionally fill in any of the **Values** fields. Empty fields are left unchanged.
+5. Press **Preview** to see how many entries would change, then **Apply**.
 
 Entries that already have the requested state are skipped, and a lorebook is only saved if something actually changed.
 
-> If a lorebook is open in the World Info editor while it gets changed, reopen it to see the updated checkboxes.
+> If a lorebook is open in the World Info editor while it gets changed, reopen it to see the updated values.
 
-### Automatic
+### Keywords
 
-1. Turn on **Auto-check Non-recursable on matching lorebooks**.
-2. In the box, list the lorebook names to process, one per line or separated by commas.
-3. Use `*` as a wildcard. Matching is case-insensitive.
+1. Pick an **API profile** from the dropdown. Press **Update** if you just created or changed a profile. Leave it on *Current connection* to use whatever API you're connected to right now.
+2. Choose a **Mode**:
+   - *Only fill entries without keywords* (default)
+   - *Add to existing keywords*
+   - *Replace existing keywords*
+3. Set the maximum number of keywords, and optionally add extra instructions (for example, "keywords in English" or "include nicknames").
+4. Press **Generate keywords**. Progress and the generated keywords show in the log. Use **Stop** to cancel; results so far are saved.
 
-| Pattern | Matches |
-| --- | --- |
-| `Memory` | a lorebook named exactly "Memory" |
-| `Memory - *` | "Memory - Alice", "Memory - Bob", ... |
-| `*Memories` | "Alice Memories", "Bob Memories", ... |
+Entries are processed one at a time. Entries with empty content are skipped, and constant entries are skipped by default since they don't need keywords. If three requests fail in a row, the run stops so you don't burn through your API.
 
-Auto mode runs:
-
-- on startup
-- when you switch chats
-- after each generation finishes
-- whenever a matching lorebook is saved
-
-It only ever **checks** the box, it never unchecks it, so it's safe to leave on. You can also press **Run auto now** to trigger it immediately, and toggle the notification that appears when entries get fixed.
+**Requirements for API profiles:** the built-in *Connection Manager* extension must be enabled and have at least one profile. Without it, the editor falls back to the current connection.
 
 ## Notes
 
-- The extension sets the lorebook entry flag called *Non-recursable* (`excludeRecursion` in the lorebook JSON).
-- All settings are stored in your SillyTavern settings, so they sync with your profile.
+- Options map to the lorebook entry fields in SillyTavern (for example, Non-recursable is `excludeRecursion`, Enabled is the inverse of `disable`).
+- All settings are stored in your SillyTavern settings.
+- Changes are saved directly to your lorebooks, so consider exporting a backup before large bulk edits.
 
 ## License
 
