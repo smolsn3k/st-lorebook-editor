@@ -13,6 +13,7 @@
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
+    overscroll-behavior: contain;
 }
 
 .le-panel {
@@ -24,9 +25,10 @@
     width: 100%;
     max-width: 1100px;
     height: min(92vh, 860px);
+    height: min(92dvh, 860px);
     overflow: hidden;
     color: var(--SmartThemeBodyColor, inherit);
-    background: var(--SmartThemeBlurTintColor, #1c1c1f);
+    background: linear-gradient(var(--SmartThemeBlurTintColor, #1c1c1f), var(--SmartThemeBlurTintColor, #1c1c1f)), #1c1c1f;
     border: 1px solid var(--le-border);
     border-radius: 16px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
@@ -90,8 +92,11 @@
     min-height: 0;
     padding: 14px 18px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
 }
+
+.le-body > *, .le-main > * { flex-shrink: 0; }
 
 .le-main { display: flex; flex-direction: column; gap: 14px; }
 
@@ -353,7 +358,8 @@
 
 /* ----- mobile ----- */
 
-@media (max-width: 600px) {
+/* full-screen sheet on phones (portrait) and short landscape screens */
+@media (max-width: 600px), (max-height: 520px) {
     .le-overlay { padding: 0; }
     .le-panel {
         height: 100vh;
@@ -362,10 +368,35 @@
         border: none;
         border-radius: 0;
     }
-    .le-body { padding: 12px; }
-    .le-header, .le-footer { padding-left: 12px; padding-right: 12px; }
+    .le-header {
+        padding-top: calc(10px + env(safe-area-inset-top, 0px));
+        padding-left: calc(12px + env(safe-area-inset-left, 0px));
+        padding-right: calc(12px + env(safe-area-inset-right, 0px));
+    }
+    .le-footer {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        padding-left: calc(12px + env(safe-area-inset-left, 0px));
+        padding-right: calc(12px + env(safe-area-inset-right, 0px));
+    }
+    .le-body {
+        padding: 12px calc(12px + env(safe-area-inset-right, 0px)) 12px calc(12px + env(safe-area-inset-left, 0px));
+    }
     .le-actions.le-end .le-btn { flex: 1; }
     .le-list { max-height: 220px; }
+    /* 16px stops iOS from zooming the page when a field is focused */
+    .le-panel input,
+    .le-panel select,
+    .le-panel textarea,
+    .le-panel .text_pole { font-size: 16px; }
+    .le-tab { padding: 8px 4px; font-size: 0.9em; }
+    .le-seg-btn { min-width: 46px; padding: 6px 10px; }
+    .le-card { padding: 12px; }
+}
+
+@media (max-height: 520px) {
+    .le-header { padding-top: calc(6px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
+    .le-footer { min-height: 0; padding-top: 6px; }
+    .le-close { width: 36px; height: 36px; }
 }
 
 .le-settings small { display: block; margin: 6px 0 8px; opacity: 0.75; }

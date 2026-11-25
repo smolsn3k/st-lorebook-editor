@@ -697,7 +697,7 @@ function buildSettingsEntry() {
     if ($menu.length) {
         const $item = $('<div id="le_wand_button" class="list-group-item flex-container flexGap5"></div>')
             .append('<div class="fa-solid fa-book-bookmark extensionsMenuExtensionButton"></div>', '<span>Lorebook Editor</span>');
-        $item.on('click', openEditor);
+        $item.on('click', () => { $menu.hide(); openEditor(); });
         $menu.append($item);
     }
 }
