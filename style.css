@@ -5,7 +5,7 @@
 .le-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9000;
+    z-index: 999990;
     display: none;
     align-items: center;
     justify-content: center;
@@ -360,10 +360,10 @@
 
 /* full-screen sheet on phones (portrait) and short landscape screens */
 @media (max-width: 600px), (max-height: 520px) {
-    .le-overlay { padding: 0; }
+    .le-overlay { padding: 0; align-items: stretch; justify-content: stretch; }
     .le-panel {
-        height: 100vh;
-        height: 100dvh;
+        height: 100%;
+        max-height: none;
         max-width: none;
         border: none;
         border-radius: 0;
