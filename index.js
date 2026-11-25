@@ -534,6 +534,8 @@ function openEditor(safe) {
         // make sure it is the last child of <body> and not hidden by other CSS
         if ($o.parent()[0] !== document.body || document.body.lastElementChild !== $o[0]) document.body.appendChild($o[0]);
         const el = $o[0];
+        // Top layer: immune to transformed ancestors (e.g. <html> transform from themes) and any z-index.
+        try { if (el.showPopover && !el.matches(':popover-open')) el.showPopover(); } catch (e) { diagLog(`showPopover failed: ${e?.message}`); }
         el.style.setProperty('display', 'flex', 'important');
         if (safe) {
             el.classList.add('le-safe');
@@ -560,8 +562,9 @@ function openEditor(safe) {
 
 function closeEditor() {
     try { if (busy && abortCtl) abortCtl.abort(); } catch (_) { /* ignore */ }
-    $('#le_overlay').css('display', 'none');
-    $('#le_overlay')[0]?.style.setProperty('display', 'none', 'important');
+    const ov = $('#le_overlay')[0];
+    try { if (ov?.hidePopover && ov.matches(':popover-open')) ov.hidePopover(); } catch (_) { /* ignore */ }
+    ov?.style.setProperty('display', 'none', 'important');
     $('body').removeClass('le-lock');
     diagLog('closed');
 }
@@ -612,7 +615,7 @@ function collectDiagnostics() {
         const cs = getComputedStyle(o);
         add(`display: ${cs.display}; visibility: ${cs.visibility}; opacity: ${cs.opacity}; position: ${cs.position}; z-index: ${cs.zIndex}`);
         add(`transform: ${cs.transform}; inline style: "${o.getAttribute('style') || ''}"`);
-        add(`rect: ${rect(o)}`);
+        add(`rect: ${rect(o)}; popover supported: ${!!o.showPopover}; in top layer: ${safe(() => o.matches(':popover-open'))}`);
         const p = o.querySelector('.le-panel');
         add(`panel rect: ${rect(p)}; header: ${rect(o.querySelector('.le-header'))}; body: ${rect(o.querySelector('.le-body'))}; footer: ${rect(o.querySelector('.le-footer'))}`);
         if (p) { const pc = getComputedStyle(p); add(`panel height: ${pc.height}; max-height: ${pc.maxHeight}; overflow: ${pc.overflow}`); }
@@ -679,7 +682,7 @@ function showDiagnostics() {
 function buildModal() {
     const scopeOptions = SCOPES.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
     const html = `
-    <div id="le_overlay" class="le-overlay" style="display:none">
+    <div id="le_overlay" class="le-overlay" popover="manual" style="display:none">
         <div class="le-panel" role="dialog" aria-modal="true" aria-label="Lorebook Editor">
             <div class="le-header">
                 <div class="le-title"><i class="fa-solid fa-book-bookmark"></i><span>Lorebook Editor</span></div>
