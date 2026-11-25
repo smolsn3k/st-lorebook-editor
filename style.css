@@ -400,3 +400,7 @@
 }
 
 .le-settings small { display: block; margin: 6px 0 8px; opacity: 0.75; }
+
+/* safe mode (Open (safe mode) button): force a plain full-screen sheet */
+.le-overlay.le-safe { padding: 0; align-items: stretch; justify-content: stretch; }
+.le-overlay.le-safe .le-panel { height: 100%; max-height: none; max-width: none; border-radius: 0; }

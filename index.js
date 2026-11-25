@@ -523,17 +523,157 @@ function updateScopeUI() {
     $('#le_scope_text').toggle(settings.scope === 'text');
 }
 
-function openEditor() {
-    $('#le_overlay').css('display', 'flex');
-    $('body').addClass('le-lock');
-    refreshList();
-    renderProfiles();
+function openEditor(safe) {
+    try {
+        let $o = $('#le_overlay');
+        if (!$o.length) {
+            diagLog('overlay missing, rebuilding');
+            buildModal();
+            $o = $('#le_overlay');
+        }
+        // make sure it is the last child of <body> and not hidden by other CSS
+        if ($o.parent()[0] !== document.body || document.body.lastElementChild !== $o[0]) document.body.appendChild($o[0]);
+        const el = $o[0];
+        el.style.setProperty('display', 'flex', 'important');
+        if (safe) {
+            el.classList.add('le-safe');
+            el.style.setProperty('position', 'fixed', 'important');
+            el.style.setProperty('inset', '0', 'important');
+            el.style.setProperty('z-index', '2147483647', 'important');
+            el.style.setProperty('visibility', 'visible', 'important');
+            el.style.setProperty('opacity', '1', 'important');
+            el.style.setProperty('transform', 'none', 'important');
+        } else {
+            el.classList.remove('le-safe');
+            ['position', 'inset', 'z-index', 'visibility', 'opacity', 'transform'].forEach(p => el.style.removeProperty(p));
+        }
+        $('body').addClass('le-lock');
+        diagLog(`opened (safe=${!!safe})`);
+    } catch (e) {
+        diagLog(`open failed: ${e?.stack || e}`);
+        toastr.error(`Could not open: ${e?.message ?? e}. Use Diagnostics in the extension settings.`, 'Lorebook Editor');
+        return;
+    }
+    try { refreshList(); } catch (e) { diagLog(`refreshList failed: ${e?.stack || e}`); }
+    try { renderProfiles(); } catch (e) { diagLog(`renderProfiles failed: ${e?.stack || e}`); }
 }
 
 function closeEditor() {
-    if (busy && abortCtl) abortCtl.abort();
-    $('#le_overlay').hide();
+    try { if (busy && abortCtl) abortCtl.abort(); } catch (_) { /* ignore */ }
+    $('#le_overlay').css('display', 'none');
+    $('#le_overlay')[0]?.style.setProperty('display', 'none', 'important');
     $('body').removeClass('le-lock');
+    diagLog('closed');
+}
+
+/* ---------------- diagnostics ---------------- */
+
+const diagEvents = [];
+
+function diagLog(text) {
+    diagEvents.push(`${new Date().toISOString().slice(11, 23)} ${text}`);
+    while (diagEvents.length > 60) diagEvents.shift();
+    console.debug(TAG, text);
+}
+
+window.addEventListener('error', (e) => {
+    const where = `${e.filename || ''}:${e.lineno || ''}`;
+    if (/lorebook|le_/i.test(`${where} ${e.message}`)) diagLog(`JS error: ${e.message} @ ${where}`);
+});
+window.addEventListener('unhandledrejection', (e) => {
+    const m = String(e.reason?.stack || e.reason || '');
+    if (/lorebook|le_/i.test(m)) diagLog(`Unhandled rejection: ${m.slice(0, 400)}`);
+});
+
+function describe(el) {
+    if (!el) return 'none';
+    const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 3).join('.') : '';
+    return `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls ? '.' + cls : ''}`;
+}
+
+function collectDiagnostics() {
+    const L = [];
+    const add = (s) => L.push(s);
+    const rect = (el) => { if (!el) return 'n/a'; const r = el.getBoundingClientRect(); return `x${Math.round(r.left)} y${Math.round(r.top)} w${Math.round(r.width)} h${Math.round(r.height)}`; };
+    const safe = (fn) => { try { return fn(); } catch (e) { return `error: ${e?.message}`; } };
+
+    add(`=== Lorebook Editor diagnostics ===`);
+    add(`version: 2.0.0 (mobile-fix build)`);
+    add(`time: ${new Date().toISOString()}`);
+    add(`UA: ${navigator.userAgent}`);
+    add(`viewport: inner ${innerWidth}x${innerHeight}, visual ${safe(() => `${Math.round(visualViewport.width)}x${Math.round(visualViewport.height)} scale ${visualViewport.scale}`)}, dpr ${devicePixelRatio}`);
+    add(`scroll: window ${Math.round(scrollX)},${Math.round(scrollY)}; body class="${document.body.className}"`);
+    add(`jQuery: ${typeof jQuery === 'function' ? jQuery.fn?.jquery : 'missing'}; toastr: ${typeof toastr}`);
+
+    const o = document.getElementById('le_overlay');
+    add(`\n-- overlay (#le_overlay) --`);
+    add(`exists: ${!!o}; parent: ${describe(o?.parentElement)}; last child of body: ${o ? document.body.lastElementChild === o : 'n/a'}`);
+    if (o) {
+        const cs = getComputedStyle(o);
+        add(`display: ${cs.display}; visibility: ${cs.visibility}; opacity: ${cs.opacity}; position: ${cs.position}; z-index: ${cs.zIndex}`);
+        add(`transform: ${cs.transform}; inline style: "${o.getAttribute('style') || ''}"`);
+        add(`rect: ${rect(o)}`);
+        const p = o.querySelector('.le-panel');
+        add(`panel rect: ${rect(p)}; header: ${rect(o.querySelector('.le-header'))}; body: ${rect(o.querySelector('.le-body'))}; footer: ${rect(o.querySelector('.le-footer'))}`);
+        if (p) { const pc = getComputedStyle(p); add(`panel height: ${pc.height}; max-height: ${pc.maxHeight}; overflow: ${pc.overflow}`); }
+        const bad = [];
+        for (let a = o.parentElement; a; a = a.parentElement) {
+            const c = getComputedStyle(a);
+            if (c.transform !== 'none' || c.filter !== 'none' || c.perspective !== 'none' || c.contain !== 'none' || c.overflow !== 'visible' || c.display === 'none') {
+                bad.push(`${describe(a)} {transform:${c.transform !== 'none'}, filter:${c.filter !== 'none'}, contain:${c.contain}, overflow:${c.overflow}, display:${c.display}}`);
+            }
+        }
+        add(`ancestors with transform/filter/contain/overflow: ${bad.length ? '\n  ' + bad.join('\n  ') : 'none'}`);
+        if (cs.display !== 'none') {
+            const pts = [['center', innerWidth / 2, innerHeight / 2], ['top-left', 8, 8], ['bottom-center', innerWidth / 2, innerHeight - 8]];
+            add(`element on top at: ` + pts.map(([n, x, y]) => `${n}=${describe(document.elementFromPoint(x, y))}`).join('; '));
+            const zs = [];
+            document.querySelectorAll('body *').forEach(el => {
+                if (el.closest('#le_overlay')) return;
+                const c = getComputedStyle(el);
+                const z = parseInt(c.zIndex, 10);
+                if ((c.position === 'fixed' || c.position === 'absolute') && z >= 999990 && c.display !== 'none') zs.push(`${describe(el)} z=${z}`);
+            });
+            add(`other elements with z-index >= 999990: ${zs.length ? zs.slice(0, 8).join('; ') : 'none'}`);
+        }
+    }
+    add(`\n-- other mounts --`);
+    add(`settings drawer: ${!!document.querySelector('.le-settings')}; wand button: ${!!document.getElementById('le_wand_button')}; #extensionsMenu: ${!!document.getElementById('extensionsMenu')}`);
+    add(`lorebooks loaded in list: ${allNames?.length ?? 'n/a'}; selected: ${settings?.selected?.length ?? 'n/a'}`);
+    add(`\n-- recent events --`);
+    add(diagEvents.length ? diagEvents.join('\n') : '(none)');
+    return L.join('\n');
+}
+
+/* Self-contained report window: inline styles only, so it works even if style.css is broken. */
+function showDiagnostics() {
+    document.getElementById('le_diag')?.remove();
+    const text = collectDiagnostics();
+    const box = document.createElement('div');
+    box.id = 'le_diag';
+    box.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;gap:8px;padding:12px;background:#111;color:#eee;box-sizing:border-box;');
+    const ta = document.createElement('textarea');
+    ta.readOnly = true;
+    ta.value = text;
+    ta.setAttribute('style', 'flex:1;min-height:0;width:100%;box-sizing:border-box;background:#000;color:#9f9;font:12px/1.4 monospace;border:1px solid #555;border-radius:8px;padding:8px;');
+    const row = document.createElement('div');
+    row.setAttribute('style', 'display:flex;gap:8px;');
+    const mk = (label, fn) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        b.setAttribute('style', 'flex:1;min-height:44px;border-radius:10px;border:1px solid #666;background:#333;color:#fff;font-size:16px;');
+        b.addEventListener('click', fn);
+        row.appendChild(b);
+    };
+    mk('Copy', async () => {
+        try { await navigator.clipboard.writeText(ta.value); } catch (_) { ta.select(); document.execCommand('copy'); }
+        toastr?.success('Copied', 'Lorebook Editor');
+    });
+    mk('Refresh', () => { ta.value = collectDiagnostics(); });
+    mk('Close', () => box.remove());
+    box.append(ta, row);
+    document.body.appendChild(box);
 }
 
 function buildModal() {
@@ -686,18 +826,26 @@ function buildSettingsEntry() {
                 <div id="le_open" class="menu_button menu_button_icon">
                     <i class="fa-solid fa-book-bookmark"></i><span>Open Lorebook Editor</span>
                 </div>
+                <div id="le_open_safe" class="menu_button menu_button_icon">
+                    <i class="fa-solid fa-shield-halved"></i><span>Open (safe mode)</span>
+                </div>
+                <div id="le_diag_btn" class="menu_button menu_button_icon">
+                    <i class="fa-solid fa-stethoscope"></i><span>Diagnostics</span>
+                </div>
             </div>
         </div>
     </div>`;
     const $target = $('#extensions_settings2').length ? $('#extensions_settings2') : $('#extensions_settings');
     $target.append(html);
-    $('#le_open').on('click', openEditor);
+    $('#le_open').on('click', () => openEditor(false));
+    $('#le_open_safe').on('click', () => openEditor(true));
+    $('#le_diag_btn').on('click', showDiagnostics);
 
     const $menu = $('#extensionsMenu');
     if ($menu.length) {
         const $item = $('<div id="le_wand_button" class="list-group-item flex-container flexGap5"></div>')
             .append('<div class="fa-solid fa-book-bookmark extensionsMenuExtensionButton"></div>', '<span>Lorebook Editor</span>');
-        $item.on('click', () => { $menu.hide(); openEditor(); });
+        $item.on('click', () => { openEditor(false); try { $menu.hide(); } catch (_) { /* ignore */ } });
         $menu.append($item);
     }
 }
@@ -705,7 +853,8 @@ function buildSettingsEntry() {
 /* ---------------- init ---------------- */
 
 jQuery(() => {
-    loadSettings();
-    buildModal();
-    buildSettingsEntry();
+    const step = (name, fn) => { try { fn(); diagLog(`${name}: ok`); } catch (e) { diagLog(`${name} FAILED: ${e?.stack || e}`); console.error(TAG, name, e); } };
+    step('loadSettings', loadSettings);
+    step('buildSettingsEntry', buildSettingsEntry); // first, so Diagnostics is always reachable
+    step('buildModal', buildModal);
 });
